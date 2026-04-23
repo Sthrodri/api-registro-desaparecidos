@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚨 Reencontro em Tempos de Crise</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <span>Reencontro</span>
+            </div>
+            <div class="nav-info">
+                <p id="pessoas-count">Pessoas Desaparecidas: <strong>0</strong></p>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HEADER -->
+    <header class="header">
+        <div class="header-content">
+            <h1>🚨 Reencontro em Tempos de Crise</h1>
+            <p>Sistema de Busca por Pessoas Desaparecidas</p>
+            <p class="subtitle">Conectando famílias para reunir pessoas</p>
+        </div>
+    </header>
+
+    <!-- CONTAINER PRINCIPAL -->
+    <div class="container">
+        <!-- NAVEGAÇÃO DE ABAS -->
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="app.abrirTab('pessoas')">
+                👥 Desaparecidos
+            </button>
+            <button class="tab-btn" onclick="app.abrirTab('registrar')">
+                ➕ Registrar
+            </button>
+            <button class="tab-btn" onclick="app.abrirTab('pistas')">
+                🔍 Pistas
+            </button>
+        </div>
+
+        <!-- ABA 1: PESSOAS DESAPARECIDAS -->
+        <div id="pessoas" class="tab-content active">
+            <div class="card">
+                <h2>👥 Pessoas Desaparecidas</h2>
+                <div id="mensagem-pessoas"></div>
+                
+                <div class="search-bar">
+                    <input type="text" id="buscar-pessoa" placeholder="🔍 Buscar por nome...">
+                </div>
+
+                <div id="filtros-status" class="filtros">
+                    <button class="filtro-btn active" onclick="app.filtrarPorStatus('todos')">Todos</button>
+                    <button class="filtro-btn" onclick="app.filtrarPorStatus('Desaparecido')">Desaparecidos</button>
+                    <button class="filtro-btn" onclick="app.filtrarPorStatus('Localizado')">Localizados</button>
+                </div>
+
+                <div id="lista-pessoas" class="loading">
+                    <div class="spinner"></div>
+                    <p>Carregando...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA 2: REGISTRAR DESAPARECIDO -->
+        <div id="registrar" class="tab-content">
+            <div class="card">
+                <h2>➕ Registrar Pessoa Desaparecida</h2>
+                <p class="instrucoes">Preencha os dados com atenção. Informações precisas ajudam na busca!</p>
+                <div id="mensagem-registrar"></div>
+
+                <form id="form-registrar" class="form-large">
+                    <fieldset>
+                        <legend>📋 Dados da Pessoa</legend>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="nome">Nome Completo *</label>
+                                <input type="text" id="nome" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="idade">Idade *</label>
+                                <input type="number" id="idade" min="0" max="150" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="genero">Gênero</label>
+                                <select id="genero">
+                                    <option value="">Selecione...</option>
+                                    <option value="Masculino">Masculino</option>
+                                    <option value="Feminino">Feminino</option>
+                                    <option value="Outro">Outro</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="data-desap">Data do Desaparecimento *</label>
+                                <input type="date" id="data-desap" required>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>📍 Localização</legend>
+                        
+                        <div class="form-group">
+                            <label for="local-desap">Local do Desaparecimento *</label>
+                            <input type="text" id="local-desap" placeholder="Bairro, Rua ou Ponto de Referência" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="descricao-fisica">Descrição Física Detalhada</label>
+                            <textarea id="descricao-fisica" placeholder="Cabelos (cor e comprimento), olhos, altura, peso, cicatrizes, tatuagens, marcas especiais, roupas que estava usando..."></textarea>
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>📞 Contato</legend>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="nome-solicitante">Seu Nome (quem está fazendo o registro) *</label>
+                                <input type="text" id="nome-solicitante" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="contato-solicitante">WhatsApp/Telefone *</label>
+                                <input type="tel" id="contato-solicitante" placeholder="(11) 99999-9999" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="relacao">Qual é sua relação com a pessoa?</label>
+                            <input type="text" id="relacao" placeholder="Ex: Pai, Mãe, Irmão, Vizinho...">
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>📸 Foto (opcional)</legend>
+                        
+                        <div class="form-group">
+                            <label for="foto-url">Link da Foto</label>
+                            <input type="url" id="foto-url" placeholder="https://exemplo.com/foto.jpg">
+                            <small>Pode ser link do Google Drive, WhatsApp Web, ou outro serviço</small>
+                        </div>
+                    </fieldset>
+
+                    <button type="submit" class="btn-primary btn-large">✅ Registrar Desaparecido</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ABA 3: ENVIAR PISTA -->
+        <div id="pistas" class="tab-content">
+            <div class="card">
+                <h2>🔍 Enviar uma Pista</h2>
+                <p class="instrucoes">Se você viu alguém que pode ser uma das pessoas desaparecidas, compartilhe a informação!</p>
+                <div id="mensagem-pista"></div>
+
+                <div class="form-group">
+                    <label for="pessoa-pista">Qual pessoa você viu? *</label>
+                    <select id="pessoa-pista" required>
+                        <option value="">Carregando pessoas...</option>
+                    </select>
+                </div>
+
+                <form id="form-pista" class="form-large">
+                    <fieldset>
+                        <legend>📝 Descrição da Pista</legend>
+                        
+                        <div class="form-group">
+                            <label for="descricao-pista">O que você viu? *</label>
+                            <textarea id="descricao-pista" placeholder="Descreva exatamente o que você viu. Inclua detalhes importantes!" required></textarea>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="local-avistamento">Local do Avistamento *</label>
+                                <input type="text" id="local-avistamento" placeholder="Rua, Bairro ou Local específico" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="data-pista">Data</label>
+                                <input type="date" id="data-pista">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="hora-pista">Hora Aproximada</label>
+                            <input type="time" id="hora-pista">
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>📞 Seus Dados</legend>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="nome-informante">Seu Nome</label>
+                                <input type="text" id="nome-informante">
+                            </div>
+                            <div class="form-group">
+                                <label for="contato-informante">Seu Contato (WhatsApp/Telefone) *</label>
+                                <input type="tel" id="contato-informante" placeholder="(11) 99999-9999" required>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <button type="submit" class="btn-primary btn-large">🔔 Enviar Pista</button>
+                </form>
+            </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <p>Todos direitos reservados a Sthefany Silva © 2026</p>
+    </footer>
+
+    <!-- MODAL PARA VISUALIZAR PISTAS -->
+    <div id="modal-pistas" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="app.fecharModal()">&times;</span>
+            <h2>🔍 Pistas sobre: <span id="nome-pessoa-pista"></span></h2>
+            <div id="lista-pistas-modal"></div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS -->
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
