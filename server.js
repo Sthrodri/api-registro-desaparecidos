@@ -1,5 +1,5 @@
 const express = require('express');
-const { criarBanco } = require('./database');
+const { pool, initDb } = require('./database');
 const cors = require('cors');
 const path = require('path');
 
@@ -52,9 +52,8 @@ app.get('/api', (req, res) => {
 // GET - Listar todas as pessoas desaparecidas
 app.get('/pessoas-desaparecidas', async (req, res) => {
     try {
-        const db = await criarBanco();
-        const pessoas = await db.all('SELECT * FROM pessoas_desaparecidas ORDER BY data_desaparecimento DESC');
-        res.json(pessoas);
+        const result = await pool.query('SELECT * FROM pessoas_desaparecidas ORDER BY data_desaparecimento DESC');
+        res.json(result.rows);
     } catch (erro) {
         res.status(500).json({ erro: 'Erro ao buscar pessoas desaparecidas' });
     }
@@ -64,14 +63,11 @@ app.get('/pessoas-desaparecidas', async (req, res) => {
 app.get('/pessoas-desaparecidas/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const db = await criarBanco();
-        const pessoa = await db.get('SELECT * FROM pessoas_desaparecidas WHERE id = ?', [id]);
-        
-        if (!pessoa) {
+        const result = await pool.query('SELECT * FROM pessoas_desaparecidas WHERE id = $1', [id]);
+        if (result.rowCount === 0) {
             return res.status(404).json({ erro: 'Pessoa não encontrada' });
         }
-        
-        res.json(pessoa);
+        res.json(result.rows[0]);
     } catch (erro) {
         res.status(500).json({ erro: 'Erro ao buscar pessoa' });
     }
@@ -96,15 +92,13 @@ app.post('/pessoas-desaparecidas', async (req, res) => {
             return res.status(400).json({ erro: 'Campos obrigatórios: nome, data_desaparecimento, local_desaparecimento' });
         }
 
-        const db = await criarBanco();
-        const dataRegistro = new Date().toLocaleDateString('pt-BR');
+        const dataRegistro = new Date().toISOString();
 
-        await db.run(`
+        await pool.query(`
             INSERT INTO pessoas_desaparecidas 
             (nome, idade, genero, descricao_fisica, data_desaparecimento, local_desaparecimento, contato_solicitante, nome_solicitante, foto_url, data_registro, ultima_atualizacao)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         `, [nome, idade, genero, descricao_fisica, data_desaparecimento, local_desaparecimento, contato_solicitante, nome_solicitante, foto_url, dataRegistro, dataRegistro]);
-
         res.status(201).json({ 
             mensagem: `Pessoa "${nome}" registrada como desaparecida com sucesso!`,
             data_registro: dataRegistro
@@ -131,15 +125,15 @@ app.put('/pessoas-desaparecidas/:id', async (req, res) => {
             status_localizacao
         } = req.body;
 
-        const db = await criarBanco();
-        const dataAtualizacao = new Date().toLocaleDateString('pt-BR');
+        const dataAtualizacao = new Date().toISOString();
 
-        const pessoaExiste = await db.get('SELECT id FROM pessoas_desaparecidas WHERE id = ?', [id]);
-        if (!pessoaExiste) {
+        const exists = await pool.query('SELECT id FROM pessoas_desaparecidas WHERE id = $1', [id]);
+        if (exists.rowCount === 0) {
             return res.status(404).json({ erro: 'Pessoa não encontrada' });
         }
 
-        const pessoaAtual = await db.get('SELECT * FROM pessoas_desaparecidas WHERE id = ?', [id]);
+        const pessoaAtualRes = await pool.query('SELECT * FROM pessoas_desaparecidas WHERE id = $1', [id]);
+        const pessoaAtual = pessoaAtualRes.rows[0];
         const pessoaAtualizada = {
             nome: nome ?? pessoaAtual.nome,
             idade: idade ?? pessoaAtual.idade,
@@ -153,12 +147,12 @@ app.put('/pessoas-desaparecidas/:id', async (req, res) => {
             status_localizacao: status_localizacao ?? pessoaAtual.status_localizacao
         };
 
-        await db.run(
+        await pool.query(
             `UPDATE pessoas_desaparecidas
-             SET nome = ?, idade = ?, genero = ?, descricao_fisica = ?, data_desaparecimento = ?,
-                 local_desaparecimento = ?, contato_solicitante = ?, nome_solicitante = ?, foto_url = ?,
-                 status_localizacao = ?, ultima_atualizacao = ?
-             WHERE id = ?`,
+             SET nome = $1, idade = $2, genero = $3, descricao_fisica = $4, data_desaparecimento = $5,
+                 local_desaparecimento = $6, contato_solicitante = $7, nome_solicitante = $8, foto_url = $9,
+                 status_localizacao = $10, ultima_atualizacao = $11
+             WHERE id = $12`,
             [
                 pessoaAtualizada.nome,
                 pessoaAtualizada.idade,
@@ -188,15 +182,13 @@ app.put('/pessoas-desaparecidas/:id', async (req, res) => {
 app.delete('/pessoas-desaparecidas/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const db = await criarBanco();
-
-        const pessoaExiste = await db.get('SELECT id FROM pessoas_desaparecidas WHERE id = ?', [id]);
-        if (!pessoaExiste) {
+        const exists = await pool.query('SELECT id FROM pessoas_desaparecidas WHERE id = $1', [id]);
+        if (exists.rowCount === 0) {
             return res.status(404).json({ erro: 'Pessoa não encontrada' });
         }
 
-        await db.run('DELETE FROM pistas WHERE pessoa_id = ?', [id]);
-        await db.run('DELETE FROM pessoas_desaparecidas WHERE id = ?', [id]);
+        await pool.query('DELETE FROM pistas WHERE pessoa_id = $1', [id]);
+        await pool.query('DELETE FROM pessoas_desaparecidas WHERE id = $1', [id]);
 
         res.json({ mensagem: 'Pessoa removida com sucesso!' });
     } catch (erro) {
@@ -210,9 +202,8 @@ app.delete('/pessoas-desaparecidas/:id', async (req, res) => {
 app.get('/pistas/:pessoa_id', async (req, res) => {
     try {
         const { pessoa_id } = req.params;
-        const db = await criarBanco();
-        const pistas = await db.all('SELECT * FROM pistas WHERE pessoa_id = ? ORDER BY data_pista DESC', [pessoa_id]);
-        res.json(pistas);
+        const result = await pool.query('SELECT * FROM pistas WHERE pessoa_id = $1 ORDER BY data_pista DESC', [pessoa_id]);
+        res.json(result.rows);
     } catch (erro) {
         res.status(500).json({ erro: 'Erro ao buscar pistas' });
     }
@@ -222,9 +213,8 @@ app.get('/pistas/:pessoa_id', async (req, res) => {
 app.get('/pistas', async (req, res) => {
     try {
         const { pessoa_id } = req.params;
-        const db = await criarBanco();
-        const pistas = await db.all('SELECT * FROM pistas', [pessoa_id]);
-        res.json(pistas);
+        const result = await pool.query('SELECT * FROM pistas');
+        res.json(result.rows);
     } catch (erro) {
         res.status(500).json({ erro: 'Erro ao buscar pistas' });
     }
@@ -234,14 +224,12 @@ app.get('/pistas', async (req, res) => {
 app.delete('/pistas/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const db = await criarBanco();
-
-        const pistaExiste = await db.get('SELECT id FROM pistas WHERE id = ?', [id]);
-        if (!pistaExiste) {
+        const exists = await pool.query('SELECT id FROM pistas WHERE id = $1', [id]);
+        if (exists.rowCount === 0) {
             return res.status(404).json({ erro: 'Pista não encontrada' });
         }
 
-        await db.run('DELETE FROM pistas WHERE id = ?', [id]);
+        await pool.query('DELETE FROM pistas WHERE id = $1', [id]);
 
         res.json({ mensagem: 'Pista removida com sucesso!' });
     } catch (erro) {
@@ -264,24 +252,24 @@ app.put('/pistas/:id', async (req, res) => {
             confiabilidade
         } = req.body;
 
-        const db = await criarBanco();
-        const pistaExiste = await db.get('SELECT * FROM pistas WHERE id = ?', [id]);
+        const pistaRes = await pool.query('SELECT * FROM pistas WHERE id = $1', [id]);
+        const pistaExiste = pistaRes.rows[0];
 
         if (!pistaExiste) {
             return res.status(404).json({ erro: 'Pista não encontrada' });
         }
 
         const pessoaIdAtual = pessoa_id ?? pistaExiste.pessoa_id;
-        const pessoaExiste = await db.get('SELECT id FROM pessoas_desaparecidas WHERE id = ?', [pessoaIdAtual]);
-        if (!pessoaExiste) {
+        const pessoaRes = await pool.query('SELECT id FROM pessoas_desaparecidas WHERE id = $1', [pessoaIdAtual]);
+        if (pessoaRes.rowCount === 0) {
             return res.status(404).json({ erro: 'Pessoa não encontrada para o pessoa_id informado.' });
         }
 
-        await db.run(
+        await pool.query(
             `UPDATE pistas
-             SET pessoa_id = ?, descricao_pista = ?, local_avistamento = ?, data_pista = ?, hora_pista = ?,
-                 contato_informante = ?, nome_informante = ?, confiabilidade = ?
-             WHERE id = ?`,
+             SET pessoa_id = $1, descricao_pista = $2, local_avistamento = $3, data_pista = $4, hora_pista = $5,
+                 contato_informante = $6, nome_informante = $7, confiabilidade = $8
+             WHERE id = $9`,
             [
                 pessoaIdAtual,
                 descricao_pista ?? pistaExiste.descricao_pista,
@@ -318,22 +306,20 @@ app.post('/pistas', async (req, res) => {
             return res.status(400).json({ erro: 'Campos obrigatórios: pessoa_id, descricao_pista' });
         }
 
-        const db = await criarBanco();
         const pessoaIdNumero = Number(pessoa_id);
-
         if (!Number.isInteger(pessoaIdNumero) || pessoaIdNumero <= 0) {
             return res.status(400).json({ erro: 'pessoa_id inválido. Envie um número inteiro positivo.' });
         }
 
-        const pessoaExiste = await db.get('SELECT id FROM pessoas_desaparecidas WHERE id = ?', [pessoaIdNumero]);
-        if (!pessoaExiste) {
+        const pessoaExiste = await pool.query('SELECT id FROM pessoas_desaparecidas WHERE id = $1', [pessoaIdNumero]);
+        if (pessoaExiste.rowCount === 0) {
             return res.status(404).json({ erro: 'Pessoa não encontrada para o pessoa_id informado.' });
         }
 
-        await db.run(`
+        await pool.query(`
             INSERT INTO pistas 
             (pessoa_id, descricao_pista, local_avistamento, data_pista, hora_pista, contato_informante, nome_informante)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
         `, [pessoaIdNumero, descricao_pista, local_avistamento, data_pista, hora_pista, contato_informante, nome_informante]);
 
         res.status(201).json({ 
