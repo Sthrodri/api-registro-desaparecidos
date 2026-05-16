@@ -64,9 +64,11 @@ app.get('/pessoas-desaparecidas/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const result = await pool.query('SELECT * FROM pessoas_desaparecidas WHERE id = $1', [id]);
+
         if (result.rowCount === 0) {
             return res.status(404).json({ erro: 'Pessoa não encontrada' });
         }
+
         res.json(result.rows[0]);
     } catch (erro) {
         res.status(500).json({ erro: 'Erro ao buscar pessoa' });
@@ -99,6 +101,7 @@ app.post('/pessoas-desaparecidas', async (req, res) => {
             (nome, idade, genero, descricao_fisica, data_desaparecimento, local_desaparecimento, contato_solicitante, nome_solicitante, foto_url, data_registro, ultima_atualizacao)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         `, [nome, idade, genero, descricao_fisica, data_desaparecimento, local_desaparecimento, contato_solicitante, nome_solicitante, foto_url, dataRegistro, dataRegistro]);
+
         res.status(201).json({ 
             mensagem: `Pessoa "${nome}" registrada como desaparecida com sucesso!`,
             data_registro: dataRegistro
@@ -127,8 +130,8 @@ app.put('/pessoas-desaparecidas/:id', async (req, res) => {
 
         const dataAtualizacao = new Date().toISOString();
 
-        const exists = await pool.query('SELECT id FROM pessoas_desaparecidas WHERE id = $1', [id]);
-        if (exists.rowCount === 0) {
+        const pessoaExiste = await pool.query('SELECT id FROM pessoas_desaparecidas WHERE id = $1', [id]);
+        if (pessoaExiste.rowCount === 0) {
             return res.status(404).json({ erro: 'Pessoa não encontrada' });
         }
 
@@ -182,8 +185,8 @@ app.put('/pessoas-desaparecidas/:id', async (req, res) => {
 app.delete('/pessoas-desaparecidas/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const exists = await pool.query('SELECT id FROM pessoas_desaparecidas WHERE id = $1', [id]);
-        if (exists.rowCount === 0) {
+        const pessoaExiste = await pool.query('SELECT id FROM pessoas_desaparecidas WHERE id = $1', [id]);
+        if (pessoaExiste.rowCount === 0) {
             return res.status(404).json({ erro: 'Pessoa não encontrada' });
         }
 
@@ -212,7 +215,6 @@ app.get('/pistas/:pessoa_id', async (req, res) => {
 // GET - Listar pistas de uma pessoa
 app.get('/pistas', async (req, res) => {
     try {
-        const { pessoa_id } = req.params;
         const result = await pool.query('SELECT * FROM pistas');
         res.json(result.rows);
     } catch (erro) {
@@ -224,8 +226,8 @@ app.get('/pistas', async (req, res) => {
 app.delete('/pistas/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const exists = await pool.query('SELECT id FROM pistas WHERE id = $1', [id]);
-        if (exists.rowCount === 0) {
+        const pistaExiste = await pool.query('SELECT id FROM pistas WHERE id = $1', [id]);
+        if (pistaExiste.rowCount === 0) {
             return res.status(404).json({ erro: 'Pista não encontrada' });
         }
 
@@ -260,8 +262,8 @@ app.put('/pistas/:id', async (req, res) => {
         }
 
         const pessoaIdAtual = pessoa_id ?? pistaExiste.pessoa_id;
-        const pessoaRes = await pool.query('SELECT id FROM pessoas_desaparecidas WHERE id = $1', [pessoaIdAtual]);
-        if (pessoaRes.rowCount === 0) {
+        const pessoaExiste = await pool.query('SELECT id FROM pessoas_desaparecidas WHERE id = $1', [pessoaIdAtual]);
+        if (pessoaExiste.rowCount === 0) {
             return res.status(404).json({ erro: 'Pessoa não encontrada para o pessoa_id informado.' });
         }
 
@@ -307,6 +309,7 @@ app.post('/pistas', async (req, res) => {
         }
 
         const pessoaIdNumero = Number(pessoa_id);
+
         if (!Number.isInteger(pessoaIdNumero) || pessoaIdNumero <= 0) {
             return res.status(400).json({ erro: 'pessoa_id inválido. Envie um número inteiro positivo.' });
         }
@@ -330,8 +333,16 @@ app.post('/pistas', async (req, res) => {
     }
 });
 
-// Iniciar servidor
+// Iniciar servidor após garantir o schema
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Servidor rodando em http://localhost:${PORT}`);
-});
+
+initDb()
+    .then(() => {
+        app.listen(PORT, () => {
+            console.log(`Servidor rodando em http://localhost:${PORT}`);
+        });
+    })
+    .catch((err) => {
+        console.error('Erro ao inicializar o banco de dados:', err);
+        process.exit(1);
+    });
